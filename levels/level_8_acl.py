@@ -3,60 +3,56 @@ from settings import *
 from levels.base_level import BaseLevel
 from utils.cli import CLIEngine
 
-class Level3(BaseLevel):
+class Level8(BaseLevel):
     def __init__(self, screen):
-        super().__init__(screen, task_title="MISSION: IP ADDRESSING")
+        super().__init__(screen, task_title="MISSION: ACCESS CONTROL LIST")
 
-        self.hostname = "ARDOS"
+        self.hostname = "Firewall"
         self.current_mode = 1
         self.current_interface = ""
-        self.feedback = "System Ready. Interfaces are currently DOWN."
 
         self.cli_engine = CLIEngine(available_commands=[
-            "configure terminal", "conf t", "interface gig0/0", "int g0/0",
-            "ip address", "no shutdown", "no shut", "exit", "end"
+            "configure terminal", "conf t", "access-list 10 deny host", 
+            "access-list 10 permit any", "interface gig0/0", "int g0/0",
+            "ip access-group 10 in", "exit", "end"
         ])
 
+        self.feedback = "System Ready. Block PC (192.168.1.50) from entering Gig0/0."
         self.history = [
-            "ARDOS# show ip interface brief",
-            "Interface    IP-Address      OK? Method Status   Protocol",
-            "Gig0/0       unassigned      YES unset  admin down down",
-            "ARDOS#",
-            "--- TASK STARTED ---"
+            "Firewall# show access-lists",
+            "No access lists configured.",
+            "Firewall#",
+            "--- ACL CONFIGURATION REQUIRED ---"
         ]
 
         self.steps = [
             {
-                "title": "1. Enter Global Config",
-                "desc": "Access configuration mode.",
-                "cmds": "conf t",
+                "title": "1. Deny Specific Host",
+                "desc": "Block IP 192.168.1.50.",
+                "cmds": "access-list 10 deny host 192.168.1.50",
                 "done": False
             },
             {
-                "title": "2. Select Interface",
-                "desc": "Configure the GigabitEthernet0/0 port.",
-                "cmds": "interface gig0/0",
+                "title": "2. Permit All Others",
+                "desc": "Allow the rest of the traffic.",
+                "cmds": "access-list 10 permit any",
                 "done": False
             },
             {
-                "title": "3. Assign IP Address",
-                "desc": "Set IP to 192.168.1.1 with mask 255.255.255.0",
-                "cmds": "ip address 192.168.1.1 255.255.255.0",
-                "done": False
-            },
-            {
-                "title": "4. Enable Interface",
-                "desc": "Turn on the port (No Shutdown).",
-                "cmds": "no shutdown",
+                "title": "3. Apply to Interface",
+                "desc": "Apply ACL 10 inbound on gig0/0.",
+                "cmds": "int g0/0 > ip access-group 10 in",
                 "done": False
             }
         ]
 
-        self.ip_assigned = False
-        self.port_up = False
+        self.acl_deny = False
+        self.acl_permit = False
+        self.acl_applied = False
 
     def events(self, event):
         if self.completed: return
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN:
                 self.process_command(self.user_input)
@@ -90,21 +86,30 @@ class Level3(BaseLevel):
         if self.current_mode == 1:
             if cmd == "configure terminal":
                 self.current_mode = 2
-                self.feedback = "SUCCESS: Global Config Mode."
-                self.complete_step(0)
+                self.feedback = "Global Config Mode."
             elif cmd == "":
                 pass
             else:
-                self.feedback = "% Invalid input detected at '^' marker."
+                self.feedback = "Error: Type 'conf t'."
 
         elif self.current_mode == 2:
-            if cmd.startswith("interface "):
-                # Normalizasyon ile int g0/0 -> interface gigabitethernet 0/0 olduysa
+            if cmd.startswith("access-list 10 "):
+                if cmd == "access-list 10 deny host 192.168.1.50":
+                    self.acl_deny = True
+                    self.feedback = "SUCCESS: Host denied."
+                    self.complete_step(0)
+                elif cmd == "access-list 10 permit any":
+                    self.acl_permit = True
+                    self.feedback = "SUCCESS: Remaining traffic permitted."
+                    self.complete_step(1)
+                else:
+                    self.feedback = "ERROR: Incorrect ACL rule."
+                    
+            elif cmd.startswith("interface "):
                 if "gigabitethernet" in cmd and "0/0" in cmd:
                     self.current_mode = 3
                     self.current_interface = "GigabitEthernet0/0"
                     self.feedback = "SUCCESS: Interface g0/0 selected."
-                    self.complete_step(1)
                 else:
                     self.feedback = "ERROR: Wrong interface. Use 'g0/0'."
             elif cmd in ["exit", "end"]:
@@ -113,41 +118,27 @@ class Level3(BaseLevel):
             elif cmd == "":
                 pass
             else:
-                self.feedback = "% Invalid input detected at '^' marker."
+                self.feedback = "% Invalid input."
 
         elif self.current_mode == 3:
-            if cmd.startswith("ip address "):
-                parts = cmd.split()
-                if len(parts) >= 4:
-                    ip = parts[2]
-                    mask = parts[3]
-                    if ip == "192.168.1.1" and mask == "255.255.255.0":
-                        self.ip_assigned = True
-                        self.feedback = "SUCCESS: IP 192.168.1.1 assigned."
-                        self.history.append("[Syslog] IP address updated")
-                        self.complete_step(2)
-                    else:
-                        self.feedback = "ERROR: Incorrect IP/Mask. Goal: 192.168.1.1/24"
+            if cmd == "ip access-group 10 in":
+                if self.acl_deny and self.acl_permit:
+                    self.acl_applied = True
+                    self.feedback = "SUCCESS: ACL applied to interface."
+                    self.complete_step(2)
                 else:
-                    self.feedback = "% Incomplete command."
-
-            elif cmd == "no shutdown":
-                self.port_up = True
-                self.feedback = "SUCCESS: Interface state changed to UP."
-                self.history.append("%LINK-3-UPDOWN: Interface Gig0/0, changed state to up")
-                self.complete_step(3)
-
+                    self.feedback = "ERROR: Configure ACL rules completely before applying."
             elif cmd == "exit":
                 self.current_mode = 2
                 self.feedback = "Exited interface mode."
             elif cmd == "":
                 pass
             else:
-                self.feedback = "% Invalid input detected at '^' marker."
+                self.feedback = "% Invalid input."
 
-        if self.ip_assigned and self.port_up:
+        if self.acl_applied:
             self.completed = True
-            self.history.append("--- MISSION ACCOMPLISHED ---")
+            self.history.append("--- NETWORK SECURED ---")
 
     def draw(self):
         super().draw()

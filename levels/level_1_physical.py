@@ -47,7 +47,7 @@ class Level1:
         self.drag_source = None
         self.cable_connected = False
         self.console_open = False
-        self.console_rect = pygame.Rect(SCREEN_WIDTH - 550, 200, 500, 380)
+        self.console_rect = pygame.Rect(SCREEN_WIDTH - 650, 180, 600, 450)
 
     def events(self, event):
         if self.completed: return  # Bitince etkileşimi kes
@@ -85,22 +85,24 @@ class Level1:
             self.completed = True
 
     def draw_victory_popup(self):
-        """STANDARTLAŞTIRILMIŞ BAŞARI KUTUSU"""
+        """STANDARTLAŞTIRILMIŞ BAŞARI EKRANI (SLEEK)"""
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        self.screen.blit(overlay, (0, 0))
+        
         center_x, center_y = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
-        w, h = 700, 350
-        rect = pygame.Rect(0, 0, w, h)
-        rect.center = (center_x, center_y)
-
-        pygame.draw.rect(self.screen, (10, 20, 10), rect)
-        pygame.draw.rect(self.screen, NEON_GREEN, rect, 5)
+        
+        line_width = 600
+        pygame.draw.line(self.screen, NEON_GREEN, (center_x - line_width//2, center_y - 90), (center_x + line_width//2, center_y - 90), 1)
+        pygame.draw.line(self.screen, NEON_GREEN, (center_x - line_width//2, center_y + 90), (center_x + line_width//2, center_y + 90), 1)
 
         t1 = self.font_big.render("PHYSICAL LINK UP", True, NEON_GREEN)
-        t2 = self.font_header.render("LAYER 1 CONNECTIVITY ESTABLISHED", True, WHITE)
-        t3 = self.font_sub.render("Loading Next Level...", True, (150, 150, 150))
+        t2 = self.font_sub.render("LAYER 1 CONNECTIVITY ESTABLISHED", True, WHITE)
+        t3 = self.font_label.render("[SECURE_SESSION] : Handshake Successful...", True, (150, 150, 150))
 
-        self.screen.blit(t1, t1.get_rect(center=(center_x, center_y - 40)))
-        self.screen.blit(t2, t2.get_rect(center=(center_x, center_y + 30)))
-        self.screen.blit(t3, t3.get_rect(center=(center_x, center_y + 80)))
+        self.screen.blit(t1, t1.get_rect(center=(center_x, center_y - 25)))
+        self.screen.blit(t2, t2.get_rect(center=(center_x, center_y + 35)))
+        self.screen.blit(t3, t3.get_rect(center=(center_x, center_y + 65)))
 
     def draw_top_bar(self):
         bar_height = 80
